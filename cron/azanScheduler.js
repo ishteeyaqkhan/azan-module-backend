@@ -3,6 +3,13 @@ const { Op } = require('sequelize');
 const { Prayer, Event, Voice, EventSchedule } = require('../models');
 const { sendPushToAll } = require('../services/pushService');
 
+function getFullAudioUrl(soundFile) {
+  if (!soundFile) return null;
+  if (soundFile.startsWith('http')) return soundFile;
+  const base = (process.env.SERVER_URL || '').replace(/\/+$/, '');
+  return `${base}/${soundFile}`;
+}
+
 function startAzanScheduler(io) {
   cron.schedule('* * * * *', async () => {
     const now = new Date();
@@ -37,7 +44,7 @@ function startAzanScheduler(io) {
           eventId: prayer.id,
           name: prayer.name,
           time: prayer.time,
-          soundFile: prayer.soundFile || null,
+          soundFile: getFullAudioUrl(prayer.soundFile),
         }).catch(err => console.error('Push error (prayer):', err));
       }
 
@@ -176,7 +183,7 @@ function startAzanScheduler(io) {
           eventId: event.id,
           name: event.name,
           time: event.fixedTime || currentTime,
-          soundFile: event.voice ? event.voice.soundFile : null,
+          soundFile: getFullAudioUrl(event.voice ? event.voice.soundFile : null),
         }).catch(err => console.error('Push error (event):', err));
       }
     } catch (error) {
