@@ -14,8 +14,9 @@ function startAzanScheduler(io) {
   cron.schedule('* * * * *', async () => {
     const now = new Date();
     const currentTime = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
-    const today = now.toISOString().split('T')[0];
+    const today = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
     const todayWeekday = now.getDay(); // 0=Sunday, 5=Friday, 6=Saturday
+    console.log(`[Cron] Checking at ${currentTime} on ${today} (weekday: ${todayWeekday})`);
 
     try {
       // Check legacy Prayer model
@@ -39,12 +40,14 @@ function startAzanScheduler(io) {
         console.log(`Emitting azan:trigger for prayer: ${prayer.name}`);
         io.emit('azan:trigger', payload);
 
+        const prayerSoundUrl = getFullAudioUrl(prayer.soundFile);
+        console.log(`[Push] Sending to all devices for prayer: ${prayer.name}, soundFile: ${prayerSoundUrl}`);
         sendPushToAll(`Azan - ${prayer.name}`, `It's time for ${prayer.name}`, {
           type: 'azan',
           eventId: prayer.id,
           name: prayer.name,
           time: prayer.time,
-          soundFile: getFullAudioUrl(prayer.soundFile),
+          soundFile: prayerSoundUrl,
         }).catch(err => console.error('Push error (prayer):', err));
       }
 
@@ -155,6 +158,8 @@ function startAzanScheduler(io) {
         ...rangeCustomSchedules.map(s => s.event)
       ];
 
+      console.log(`[Cron] Found: ${prayers.length} prayers, ${dailyFixedEvents.length} dailyFixed, ${dailyCustomSchedules.length} dailyCustom, ${weeklyFixedEvents.length} weeklyFixed, ${weeklyCustomSchedules.length} weeklyCustom, ${rangeFixedEvents.length} rangeFixed, ${rangeCustomSchedules.length} rangeCustom`);
+
       // Filter out inactiveDays + deduplicate by event ID
       const seenIds = new Set();
       const triggeredEvents = [];
@@ -178,12 +183,14 @@ function startAzanScheduler(io) {
         console.log(`Emitting azan:trigger for event: ${event.name} (${event.type})`);
         io.emit('azan:trigger', payload);
 
+        const eventSoundUrl = getFullAudioUrl(event.voice ? event.voice.soundFile : null);
+        console.log(`[Push] Sending to all devices for event: ${event.name}, soundFile: ${eventSoundUrl}`);
         sendPushToAll(`Azan - ${event.name}`, `It's time for ${event.name}`, {
           type: 'azan',
           eventId: event.id,
           name: event.name,
           time: event.fixedTime || currentTime,
-          soundFile: getFullAudioUrl(event.voice ? event.voice.soundFile : null),
+          soundFile: eventSoundUrl,
         }).catch(err => console.error('Push error (event):', err));
       }
     } catch (error) {
